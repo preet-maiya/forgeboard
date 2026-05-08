@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Forgeboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Courier New', monospace;
+      background: #0f0f0f;
+      color: #d4d4d4;
+      min-height: 100vh;
+    }
+
+    header {
+      border-bottom: 1px solid #333;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    header h1 { font-size: 18px; color: #fff; letter-spacing: 2px; }
+    header span { font-size: 12px; color: #666; }
+
+    main { padding: 24px; max-width: 1400px; margin: 0 auto; }
+
+    /* Submit form */
+    .submit-section {
+      border: 1px solid #333;
+      padding: 20px;
+      margin-bottom: 32px;
+      background: #141414;
+    }
+    .submit-section h2 { font-size: 13px; color: #888; margin-bottom: 16px; letter-spacing: 1px; text-transform: uppercase; }
+    .form-row { display: flex; gap: 12px; margin-bottom: 12px; }
+    .form-row input, .form-row textarea {
+      background: #0f0f0f;
+      border: 1px solid #333;
+      color: #d4d4d4;
+      padding: 8px 12px;
+      font-family: inherit;
+      font-size: 13px;
+      resize: vertical;
+    }
+    .form-row input { flex: 1; height: 36px; }
+    .form-row textarea { flex: 1; min-height: 80px; }
+    .btn {
+      background: #1a1a1a;
+      border: 1px solid #444;
+      color: #d4d4d4;
+      padding: 6px 14px;
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn:hover { border-color: #888; color: #fff; }
+    .btn.primary { border-color: #5a9; color: #5a9; }
+    .btn.primary:hover { background: #5a9; color: #000; }
+    .btn.danger { border-color: #a55; color: #a55; }
+    .btn.danger:hover { background: #a55; color: #fff; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Board */
+    .board { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 16px; }
+    .column {
+      min-width: 260px;
+      flex: 1;
+      border: 1px solid #222;
+      background: #111;
+    }
+    .column-header {
+      padding: 10px 14px;
+      border-bottom: 1px solid #222;
+      font-size: 11px;
+      color: #666;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .column-header .count {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      padding: 1px 6px;
+      font-size: 10px;
+      color: #888;
+    }
+    .column-body { padding: 8px; }
+
+    /* Task card */
+    .task-card {
+      border: 1px solid #2a2a2a;
+      background: #161616;
+      margin-bottom: 8px;
+      cursor: pointer;
+    }
+    .task-card:hover { border-color: #444; }
+    .task-card.expanded { border-color: #555; }
+    .task-card-header {
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .task-id { font-size: 10px; color: #555; }
+    .task-title { font-size: 13px; color: #ccc; word-break: break-word; }
+    .task-date { font-size: 10px; color: #444; }
+
+    .task-body {
+      border-top: 1px solid #222;
+      padding: 12px;
+      display: none;
+    }
+    .task-card.expanded .task-body { display: block; }
+
+    .task-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+
+    .file-tabs { display: flex; gap: 4px; margin-bottom: 8px; flex-wrap: wrap; }
+    .file-tab {
+      font-size: 11px;
+      padding: 3px 8px;
+      border: 1px solid #333;
+      background: #111;
+      color: #666;
+      cursor: pointer;
+    }
+    .file-tab:hover, .file-tab.active { border-color: #666; color: #ccc; }
+    .file-content {
+      background: #0a0a0a;
+      border: 1px solid #222;
+      padding: 10px;
+      font-size: 11px;
+      color: #aaa;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 300px;
+      overflow-y: auto;
+      display: none;
+    }
+    .file-content.visible { display: block; }
+
+    .msg { font-size: 11px; padding: 4px 8px; margin-bottom: 8px; }
+    .msg.ok { color: #5a9; border-left: 2px solid #5a9; }
+    .msg.err { color: #a55; border-left: 2px solid #a55; }
+
+    /* Status colors per column */
+    .col-IDEA_SUBMITTED .column-header { border-left: 3px solid #555; }
+    .col-NEEDS_CLARIFICATION .column-header { border-left: 3px solid #88a; }
+    .col-SPEC_DRAFTED .column-header { border-left: 3px solid #88f; }
+    .col-SPEC_APPROVED .column-header { border-left: 3px solid #5a9; }
+    .col-IMPLEMENTING .column-header { border-left: 3px solid #fa0; }
+    .col-IN_REVIEW .column-header { border-left: 3px solid #f80; }
+    .col-READY_TO_MERGE .column-header { border-left: 3px solid #5f5; }
+    .col-DONE .column-header { border-left: 3px solid #444; }
+
+    .refresh-btn { font-size: 11px; color: #555; cursor: pointer; background: none; border: none; font-family: inherit; }
+    .refresh-btn:hover { color: #aaa; }
+
+    .empty { font-size: 11px; color: #333; padding: 8px 0; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>FORGEBOARD</h1>
+  <span>autonomous software engineering workflow</span>
+  <button class="refresh-btn" onclick="loadTasks()">[refresh]</button>
+</header>
+
+<main>
+  <!-- Submit Form -->
+  <div class="submit-section">
+    <h2>Submit Feature Idea</h2>
+    <div class="form-row">
+      <input type="text" id="idea-title" placeholder="Feature title..." />
+    </div>
+    <div class="form-row">
+      <textarea id="idea-text" placeholder="Describe your feature idea in freeform text..."></textarea>
+    </div>
+    <div class="form-row">
+      <button class="btn primary" onclick="submitIdea()">Submit Idea</button>
+    </div>
+    <div id="submit-msg"></div>
+  </div>
+
+  <!-- Task Board -->
+  <div class="board" id="board"></div>
+</main>
+
+<script>
+const API = '/api';
+
+const STATES = [
+  'IDEA_SUBMITTED',
+  'NEEDS_CLARIFICATION',
+  'SPEC_DRAFTED',
+  'SPEC_APPROVED',
+  'IMPLEMENTING',
+  'IN_REVIEW',
+  'READY_TO_MERGE',
+  'DONE',
+];
+
+const STATE_LABELS = {
+  IDEA_SUBMITTED: 'Idea Submitted',
+  NEEDS_CLARIFICATION: 'Needs Clarification',
+  SPEC_DRAFTED: 'Spec Drafted',
+  SPEC_APPROVED: 'Spec Approved',
+  IMPLEMENTING: 'Implementing',
+  IN_REVIEW: 'In Review',
+  READY_TO_MERGE: 'Ready to Merge',
+  DONE: 'Done',
+};
+
+// Which actions are available per state
+const STATE_ACTIONS = {
+  IDEA_SUBMITTED: [{ label: 'Generate Clarifications', action: 'clarify', cls: '' }],
+  NEEDS_CLARIFICATION: [{ label: 'Generate Spec', action: 'spec', cls: '' }],
+  SPEC_DRAFTED: [{ label: 'Approve Spec', action: 'approve', cls: 'primary' }],
+  SPEC_APPROVED: [{ label: 'Start Implementation', action: 'implement', cls: '' }],
+  IMPLEMENTING: [],
+  IN_REVIEW: [{ label: 'Run Review', action: 'review', cls: '' }],
+  READY_TO_MERGE: [{ label: 'Mark Done', action: 'done', cls: 'primary' }],
+  DONE: [],
+};
+
+const FILES_PER_STATE = {
+  IDEA_SUBMITTED: ['idea.md'],
+  NEEDS_CLARIFICATION: ['idea.md', 'clarification.md'],
+  SPEC_DRAFTED: ['idea.md', 'clarification.md', 'spec.md'],
+  SPEC_APPROVED: ['idea.md', 'clarification.md', 'spec.md'],
+  IMPLEMENTING: ['idea.md', 'spec.md'],
+  IN_REVIEW: ['idea.md', 'spec.md'],
+  READY_TO_MERGE: ['idea.md', 'spec.md'],
+  DONE: ['idea.md', 'spec.md'],
+};
+
+let expandedTask = null;
+let expandedFile = {};
+
+async function api(path, method = 'GET', body = null) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(API + path, opts);
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data };
+}
+
+async function submitIdea() {
+  const title = document.getElementById('idea-title').value.trim();
+  const idea = document.getElementById('idea-text').value.trim();
+  const msgEl = document.getElementById('submit-msg');
+  msgEl.innerHTML = '';
+
+  if (!title || !idea) {
+    msgEl.innerHTML = '<div class="msg err">Title and idea text are required.</div>';
+    return;
+  }
+
+  const { ok, data } = await api('/tasks', 'POST', { title, idea });
+  if (ok) {
+    msgEl.innerHTML = `<div class="msg ok">Created ${data.id}</div>`;
+    document.getElementById('idea-title').value = '';
+    document.getElementById('idea-text').value = '';
+    await loadTasks();
+  } else {
+    msgEl.innerHTML = `<div class="msg err">${data.error || 'Failed to create task'}</div>`;
+  }
+}
+
+async function doAction(taskId, action) {
+  const { ok, data } = await api(`/tasks/${taskId}/${action}`, 'POST');
+  if (!ok) {
+    alert(`Error: ${data.error || 'action failed'}`);
+    return;
+  }
+  await loadTasks();
+  // Keep task expanded after action
+  expandedTask = taskId;
+}
+
+async function loadFile(taskId, filename) {
+  const res = await fetch(`${API}/tasks/${taskId}/files/${filename}`);
+  if (!res.ok) return '(not available yet)';
+  return await res.text();
+}
+
+async function showFile(taskId, filename, btnEl) {
+  const contentId = `file-${taskId}-content`;
+  const contentEl = document.getElementById(contentId);
+  if (!contentEl) return;
+
+  // Toggle active tab
+  const tabs = contentEl.parentElement.querySelectorAll('.file-tab');
+  tabs.forEach(t => t.classList.remove('active'));
+  btnEl.classList.add('active');
+
+  expandedFile[taskId] = filename;
+  contentEl.classList.add('visible');
+  contentEl.textContent = 'Loading...';
+  const text = await loadFile(taskId, filename);
+  contentEl.textContent = text;
+}
+
+function taskCard(task) {
+  const isExpanded = expandedTask === task.id;
+  const actions = STATE_ACTIONS[task.state] || [];
+  const files = FILES_PER_STATE[task.state] || [];
+  const createdAt = new Date(task.created_at).toLocaleString();
+
+  const actionsHtml = actions.map(a =>
+    `<button class="btn ${a.cls}" onclick="event.stopPropagation(); doAction('${task.id}', '${a.action}')">${a.label}</button>`
+  ).join('');
+
+  const fileTabsHtml = files.map(f =>
+    `<button class="file-tab" onclick="event.stopPropagation(); showFile('${task.id}', '${f}', this)">${f}</button>`
+  ).join('');
+
+  return `
+    <div class="task-card ${isExpanded ? 'expanded' : ''}" id="card-${task.id}" onclick="toggleCard('${task.id}')">
+      <div class="task-card-header">
+        <span class="task-id">${task.id}</span>
+        <span class="task-title">${escHtml(task.title)}</span>
+        <span class="task-date">${createdAt}</span>
+      </div>
+      <div class="task-body">
+        ${actions.length ? `<div class="task-actions">${actionsHtml}</div>` : ''}
+        ${files.length ? `
+          <div class="file-tabs">${fileTabsHtml}</div>
+          <pre class="file-content" id="file-${task.id}-content"></pre>
+        ` : ''}
+      </div>
+    </div>
+  `;
+}
+
+async function toggleCard(taskId) {
+  if (expandedTask === taskId) {
+    expandedTask = null;
+  } else {
+    expandedTask = taskId;
+  }
+  await loadTasks();
+}
+
+async function loadTasks() {
+  const { ok, data } = await api('/tasks');
+  if (!ok) {
+    document.getElementById('board').innerHTML = '<div class="msg err">Failed to load tasks.</div>';
+    return;
+  }
+
+  const tasksByState = {};
+  STATES.forEach(s => { tasksByState[s] = []; });
+  (data || []).forEach(t => {
+    if (tasksByState[t.state]) tasksByState[t.state].push(t);
+  });
+
+  const board = document.getElementById('board');
+  board.innerHTML = STATES.map(state => {
+    const tasks = tasksByState[state];
+    const cardsHtml = tasks.length
+      ? tasks.map(taskCard).join('')
+      : '<div class="empty">empty</div>';
+    return `
+      <div class="column col-${state}">
+        <div class="column-header">
+          <span>${STATE_LABELS[state]}</span>
+          <span class="count">${tasks.length}</span>
+        </div>
+        <div class="column-body">${cardsHtml}</div>
+      </div>
+    `;
+  }).join('');
+
+  // Restore expanded file view
+  if (expandedTask && expandedFile[expandedTask]) {
+    const filename = expandedFile[expandedTask];
+    const tab = document.querySelector(`#card-${expandedTask} .file-tab`);
+    // find the right tab
+    const tabs = document.querySelectorAll(`#card-${expandedTask} .file-tab`);
+    for (const t of tabs) {
+      if (t.textContent === filename) {
+        await showFile(expandedTask, filename, t);
+        break;
+      }
+    }
+  }
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Initial load
+loadTasks();
+
+// Auto-refresh every 15s
+setInterval(loadTasks, 15000);
+</script>
+</body>
+</html>
