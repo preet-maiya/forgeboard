@@ -13,7 +13,8 @@ import (
 type Executor interface {
 	PlanTask(taskID, taskDir string) error
 	ImplementTask(taskID, taskDir string) error
-	ReviewTask(taskID, taskDir string) error
+	// ReviewTask returns (approved, error). approved=false means CHANGES_REQUESTED.
+	ReviewTask(taskID, taskDir string) (bool, error)
 }
 
 // MockExecutor simulates execution by writing log files. No external calls are made.
@@ -33,9 +34,9 @@ func (e *MockExecutor) ImplementTask(taskID, taskDir string) error {
 	return e.writeLog(taskDir, "implement", msg)
 }
 
-func (e *MockExecutor) ReviewTask(taskID, taskDir string) error {
+func (e *MockExecutor) ReviewTask(taskID, taskDir string) (bool, error) {
 	msg := fmt.Sprintf("[MOCK] ReviewTask: %s\nReading implementation...\nChecking against acceptance criteria...\nNo issues found. Ready to merge.\n", taskID)
-	return e.writeLog(taskDir, "review", msg)
+	return true, e.writeLog(taskDir, "review", msg)
 }
 
 func (e *MockExecutor) writeLog(taskDir, op, content string) error {

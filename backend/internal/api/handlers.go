@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 
@@ -228,7 +229,11 @@ func (h *Handler) implementTask(w http.ResponseWriter, r *http.Request, id strin
 	}
 	taskDir := h.repo.TaskDir(id)
 	go func() {
-		_ = h.executor.ImplementTask(id, taskDir)
+		if err := h.executor.ImplementTask(id, taskDir); err != nil {
+			log.Printf("implement failed for %s: %v — rolling back to SPEC_APPROVED", id, err)
+			_ = h.repo.UpdateState(id, task.StateSpecApproved)
+			return
+		}
 		_ = h.repo.UpdateState(id, task.StateInReview)
 	}()
 	jsonOK(w, map[string]string{"status": "implementation started", "task_id": id}, http.StatusOK)
@@ -247,8 +252,18 @@ func (h *Handler) reviewTask(w http.ResponseWriter, r *http.Request, id string) 
 	}
 	taskDir := h.repo.TaskDir(id)
 	go func() {
-		_ = h.executor.ReviewTask(id, taskDir)
-		_ = h.repo.UpdateState(id, task.StateReadyToMerge)
+		approved, err := h.executor.ReviewTask(id, taskDir)
+		if err != nil {
+			log.Printf("review failed for %s: %v — rolling back to IMPLEMENTING", id, err)
+			_ = h.repo.UpdateState(id, task.StateImplementing)
+			return
+		}
+		if approved {
+			_ = h.repo.UpdateState(id, task.StateReadyToMerge)
+		} else {
+			log.Printf("review: CHANGES_REQUESTED for %s — rolling back to IMPLEMENTING", id)
+			_ = h.repo.UpdateState(id, task.StateImplementing)
+		}
 	}()
 	jsonOK(w, map[string]string{"status": "review started", "task_id": id}, http.StatusOK)
 }

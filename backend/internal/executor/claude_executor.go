@@ -13,10 +13,12 @@ import (
 
 // ClaudeCodeExecutor invokes the claude CLI to perform planning, implementation, and review.
 // All operations run with the task directory as context via explicit file references in the prompt.
-type ClaudeCodeExecutor struct{}
+type ClaudeCodeExecutor struct {
+	projectRoot string
+}
 
-func NewClaudeCodeExecutor() *ClaudeCodeExecutor {
-	return &ClaudeCodeExecutor{}
+func NewClaudeCodeExecutor(projectRoot string) *ClaudeCodeExecutor {
+	return &ClaudeCodeExecutor{projectRoot: projectRoot}
 }
 
 func (e *ClaudeCodeExecutor) PlanTask(taskID, taskDir string) error {
@@ -60,21 +62,31 @@ func (e *ClaudeCodeExecutor) ImplementTask(taskID, taskDir string) error {
 		planContent = "\n\nImplementation plan:\n\n" + string(raw)
 	}
 
-	prompt := `You are an AI software engineer. Implement the feature described in the spec below.
+	prompt := `You are an AI software engineer implementing a feature in a Go + HTML codebase.
 
-Rules:
-- Write clean, readable code
-- Handle all edge cases listed in the spec
-- Do not add features beyond what the spec requires
-- After implementing, write a brief summary of what you did
+Use your tools (Read, Edit, Write, Bash, Glob, Grep) to:
+1. Read existing source files to understand current structure
+2. Implement all changes required by the spec
+3. Run ` + "`go vet ./...`" + ` and ` + "`go build ./...`" + ` in the backend/ directory to verify no compile errors
+4. Write a brief summary of what you changed
+
+The project root is your current working directory.
+Backend source: backend/
+Frontend: frontend/index.html
+Task spec: ` + taskDir + `/spec.md
 
 Spec:
 
 ` + string(specContent) + planContent
 
-	output, err := claudecli.Run(prompt)
+	implTools := []string{"Read", "Edit", "Write", "Bash", "Glob", "Grep"}
+	output, err := claudecli.RunInDir(prompt, e.projectRoot, implTools)
 	if err != nil {
-		return e.writeLog(taskDir, "implement", fmt.Sprintf("ERROR: %v", err))
+		logErr := e.writeLog(taskDir, "implement", fmt.Sprintf("ERROR: %v\nOutput:\n%s", err, output))
+		if logErr != nil {
+			log.Printf("executor: failed to write error log: %v", logErr)
+		}
+		return fmt.Errorf("implement: %w", err)
 	}
 
 	summary := "# Implementation Summary\n\n" + output
@@ -84,10 +96,10 @@ Spec:
 	return e.writeLog(taskDir, "implement", output)
 }
 
-func (e *ClaudeCodeExecutor) ReviewTask(taskID, taskDir string) error {
+func (e *ClaudeCodeExecutor) ReviewTask(taskID, taskDir string) (bool, error) {
 	specContent, err := os.ReadFile(filepath.Join(taskDir, "spec.md"))
 	if err != nil {
-		return fmt.Errorf("read spec.md: %w", err)
+		return false, fmt.Errorf("read spec.md: %w", err)
 	}
 
 	prompt := `You are a senior engineer performing a code review.
@@ -118,16 +130,18 @@ Spec:
 
 	output, err := claudecli.Run(prompt)
 	if err != nil {
-		return e.writeLog(taskDir, "review", fmt.Sprintf("ERROR: %v", err))
+		_ = e.writeLog(taskDir, "review", fmt.Sprintf("ERROR: %v", err))
+		return false, fmt.Errorf("review: %w", err)
 	}
 
 	reviewPath := filepath.Join(taskDir, "reviews", "review.md")
 	_ = os.MkdirAll(filepath.Join(taskDir, "reviews"), 0755)
 	_ = os.WriteFile(reviewPath, []byte(output), 0644)
 
-	approved := strings.Contains(output, "APPROVED")
+	approved := !strings.Contains(output, "CHANGES_REQUESTED")
 	log.Printf("executor: review complete for %s, approved=%v", taskID, approved)
-	return e.writeLog(taskDir, "review", output)
+	_ = e.writeLog(taskDir, "review", output)
+	return approved, nil
 }
 
 func (e *ClaudeCodeExecutor) writeLog(taskDir, op, content string) error {

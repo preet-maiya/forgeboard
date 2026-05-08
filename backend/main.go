@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"forgeboard/internal/api"
@@ -29,10 +30,16 @@ func main() {
 	}
 	log.Printf("claude: CLI found")
 
+	absTasksDir, err := filepath.Abs(tasksDir)
+	if err != nil {
+		log.Fatalf("failed to resolve tasks dir: %v", err)
+	}
+	projectRoot := filepath.Dir(absTasksDir)
+
 	repo := task.NewRepository(tasksDir)
 	p := planner.NewClaudePlanner()
 	sg := spec.NewClaudeGenerator()
-	ex := executor.NewClaudeCodeExecutor()
+	ex := executor.NewClaudeCodeExecutor(projectRoot)
 
 	h := api.NewHandler(repo, p, sg, ex)
 

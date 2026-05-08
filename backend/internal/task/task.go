@@ -21,8 +21,8 @@ var ValidTransitions = map[State][]State{
 	StateNeedsClarification: {StateSpecDrafted},
 	StateSpecDrafted:        {StateSpecApproved},
 	StateSpecApproved:       {StateImplementing},
-	StateImplementing:       {StateInReview},
-	StateInReview:           {StateReadyToMerge},
+	StateImplementing:       {StateInReview, StateSpecApproved},
+	StateInReview:           {StateReadyToMerge, StateImplementing},
 	StateReadyToMerge:       {StateDone},
 	StateDone:               {},
 }
