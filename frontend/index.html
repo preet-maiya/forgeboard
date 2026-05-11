@@ -4,41 +4,119 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Forgeboard</title>
+  <script>
+    (function () {
+      var theme;
+      try { theme = localStorage.getItem('theme'); } catch (e) {}
+      if (!theme) {
+        theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
   <style>
+    [data-theme="dark"] {
+      --color-bg: #0f0f0f;
+      --color-surface-1: #111;
+      --color-surface-2: #141414;
+      --color-surface-3: #1a1a1a;
+      --color-surface-card: #161616;
+      --color-surface-code: #0a0a0a;
+      --color-border: #333;
+      --color-border-subtle: #222;
+      --color-border-card: #2a2a2a;
+      --color-border-strong: #444;
+      --color-border-expanded: #555;
+      --color-text: #d4d4d4;
+      --color-text-primary: #ccc;
+      --color-text-code: #aaa;
+      --color-text-subtle: #888;
+      --color-text-muted: #666;
+      --color-text-dim: #555;
+      --color-text-faint: #444;
+      --color-text-empty: #333;
+      --color-heading: #fff;
+      --color-primary: #5a9;
+      --color-primary-text: #000;
+      --color-danger: #a55;
+    }
+
+    [data-theme="light"] {
+      --color-bg: #f8f8f8;
+      --color-surface-1: #f0f0f0;
+      --color-surface-2: #ececec;
+      --color-surface-3: #e4e4e4;
+      --color-surface-card: #f5f5f5;
+      --color-surface-code: #e8e8e8;
+      --color-border: #c8c8c8;
+      --color-border-subtle: #ddd;
+      --color-border-card: #d4d4d4;
+      --color-border-strong: #aaa;
+      --color-border-expanded: #888;
+      --color-text: #2a2a2a;
+      --color-text-primary: #333;
+      --color-text-code: #555;
+      --color-text-subtle: #666;
+      --color-text-muted: #777;
+      --color-text-dim: #888;
+      --color-text-faint: #999;
+      --color-text-empty: #bbb;
+      --color-heading: #111;
+      --color-primary: #2a8;
+      --color-primary-text: #fff;
+      --color-danger: #c44;
+    }
+
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: 'Courier New', monospace;
-      background: #0f0f0f;
-      color: #d4d4d4;
+      background: var(--color-bg);
+      color: var(--color-text);
       min-height: 100vh;
     }
 
     header {
-      border-bottom: 1px solid #333;
+      border-bottom: 1px solid var(--color-border);
       padding: 16px 24px;
       display: flex;
       align-items: center;
       gap: 16px;
     }
-    header h1 { font-size: 18px; color: #fff; letter-spacing: 2px; }
-    header span { font-size: 12px; color: #666; }
+    header h1 { font-size: 18px; color: var(--color-heading); letter-spacing: 2px; }
+    header span { font-size: 12px; color: var(--color-text-muted); }
+
+    .theme-toggle {
+      margin-left: auto;
+      background: none;
+      border: 1px solid var(--color-border);
+      color: var(--color-text);
+      padding: 5px 8px;
+      cursor: pointer;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+    .theme-toggle:hover { border-color: var(--color-border-strong); color: var(--color-heading); }
+    .theme-toggle:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 
     main { padding: 24px; max-width: 1400px; margin: 0 auto; }
 
     /* Submit form */
     .submit-section {
-      border: 1px solid #333;
+      border: 1px solid var(--color-border);
       padding: 20px;
       margin-bottom: 32px;
-      background: #141414;
+      background: var(--color-surface-2);
     }
-    .submit-section h2 { font-size: 13px; color: #888; margin-bottom: 16px; letter-spacing: 1px; text-transform: uppercase; }
+    .submit-section h2 { font-size: 13px; color: var(--color-text-subtle); margin-bottom: 16px; letter-spacing: 1px; text-transform: uppercase; }
     .form-row { display: flex; gap: 12px; margin-bottom: 12px; }
     .form-row input, .form-row textarea {
-      background: #0f0f0f;
-      border: 1px solid #333;
-      color: #d4d4d4;
+      background: var(--color-bg);
+      border: 1px solid var(--color-border);
+      color: var(--color-text);
       padding: 8px 12px;
       font-family: inherit;
       font-size: 13px;
@@ -47,20 +125,20 @@
     .form-row input { flex: 1; height: 36px; }
     .form-row textarea { flex: 1; min-height: 80px; }
     .btn {
-      background: #1a1a1a;
-      border: 1px solid #444;
-      color: #d4d4d4;
+      background: var(--color-surface-3);
+      border: 1px solid var(--color-border-strong);
+      color: var(--color-text);
       padding: 6px 14px;
       font-family: inherit;
       font-size: 12px;
       cursor: pointer;
       white-space: nowrap;
     }
-    .btn:hover { border-color: #888; color: #fff; }
-    .btn.primary { border-color: #5a9; color: #5a9; }
-    .btn.primary:hover { background: #5a9; color: #000; }
-    .btn.danger { border-color: #a55; color: #a55; }
-    .btn.danger:hover { background: #a55; color: #fff; }
+    .btn:hover { border-color: var(--color-text-subtle); color: var(--color-heading); }
+    .btn.primary { border-color: var(--color-primary); color: var(--color-primary); }
+    .btn.primary:hover { background: var(--color-primary); color: var(--color-primary-text); }
+    .btn.danger { border-color: var(--color-danger); color: var(--color-danger); }
+    .btn.danger:hover { background: var(--color-danger); color: var(--color-heading); }
     .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
     /* Board */
@@ -68,14 +146,14 @@
     .column {
       min-width: 260px;
       flex: 1;
-      border: 1px solid #222;
-      background: #111;
+      border: 1px solid var(--color-border-subtle);
+      background: var(--color-surface-1);
     }
     .column-header {
       padding: 10px 14px;
-      border-bottom: 1px solid #222;
+      border-bottom: 1px solid var(--color-border-subtle);
       font-size: 11px;
-      color: #666;
+      color: var(--color-text-muted);
       letter-spacing: 1px;
       text-transform: uppercase;
       display: flex;
@@ -83,35 +161,35 @@
       align-items: center;
     }
     .column-header .count {
-      background: #1a1a1a;
-      border: 1px solid #333;
+      background: var(--color-surface-3);
+      border: 1px solid var(--color-border);
       padding: 1px 6px;
       font-size: 10px;
-      color: #888;
+      color: var(--color-text-subtle);
     }
     .column-body { padding: 8px; }
 
     /* Task card */
     .task-card {
-      border: 1px solid #2a2a2a;
-      background: #161616;
+      border: 1px solid var(--color-border-card);
+      background: var(--color-surface-card);
       margin-bottom: 8px;
       cursor: pointer;
     }
-    .task-card:hover { border-color: #444; }
-    .task-card.expanded { border-color: #555; }
+    .task-card:hover { border-color: var(--color-border-strong); }
+    .task-card.expanded { border-color: var(--color-border-expanded); }
     .task-card-header {
       padding: 10px 12px;
       display: flex;
       flex-direction: column;
       gap: 4px;
     }
-    .task-id { font-size: 10px; color: #555; }
-    .task-title { font-size: 13px; color: #ccc; word-break: break-word; }
-    .task-date { font-size: 10px; color: #444; }
+    .task-id { font-size: 10px; color: var(--color-text-dim); }
+    .task-title { font-size: 13px; color: var(--color-text-primary); word-break: break-word; }
+    .task-date { font-size: 10px; color: var(--color-text-faint); }
 
     .task-body {
-      border-top: 1px solid #222;
+      border-top: 1px solid var(--color-border-subtle);
       padding: 12px;
       display: none;
     }
@@ -123,18 +201,18 @@
     .file-tab {
       font-size: 11px;
       padding: 3px 8px;
-      border: 1px solid #333;
-      background: #111;
-      color: #666;
+      border: 1px solid var(--color-border);
+      background: var(--color-surface-1);
+      color: var(--color-text-muted);
       cursor: pointer;
     }
-    .file-tab:hover, .file-tab.active { border-color: #666; color: #ccc; }
+    .file-tab:hover, .file-tab.active { border-color: var(--color-text-muted); color: var(--color-text-primary); }
     .file-content {
-      background: #0a0a0a;
-      border: 1px solid #222;
+      background: var(--color-surface-code);
+      border: 1px solid var(--color-border-subtle);
       padding: 10px;
       font-size: 11px;
-      color: #aaa;
+      color: var(--color-text-code);
       white-space: pre-wrap;
       word-break: break-word;
       max-height: 300px;
@@ -144,8 +222,8 @@
     .file-content.visible { display: block; }
 
     .msg { font-size: 11px; padding: 4px 8px; margin-bottom: 8px; }
-    .msg.ok { color: #5a9; border-left: 2px solid #5a9; }
-    .msg.err { color: #a55; border-left: 2px solid #a55; }
+    .msg.ok { color: var(--color-primary); border-left: 2px solid var(--color-primary); }
+    .msg.err { color: var(--color-danger); border-left: 2px solid var(--color-danger); }
 
     /* Status colors per column */
     .col-IDEA_SUBMITTED .column-header { border-left: 3px solid #555; }
@@ -157,10 +235,10 @@
     .col-READY_TO_MERGE .column-header { border-left: 3px solid #5f5; }
     .col-DONE .column-header { border-left: 3px solid #444; }
 
-    .refresh-btn { font-size: 11px; color: #555; cursor: pointer; background: none; border: none; font-family: inherit; }
-    .refresh-btn:hover { color: #aaa; }
+    .refresh-btn { font-size: 11px; color: var(--color-text-dim); cursor: pointer; background: none; border: none; font-family: inherit; }
+    .refresh-btn:hover { color: var(--color-text-code); }
 
-    .empty { font-size: 11px; color: #333; padding: 8px 0; }
+    .empty { font-size: 11px; color: var(--color-text-empty); padding: 8px 0; }
   </style>
 </head>
 <body>
@@ -169,6 +247,7 @@
   <h1>FORGEBOARD</h1>
   <span>autonomous software engineering workflow</span>
   <button class="refresh-btn" onclick="loadTasks()">[refresh]</button>
+  <button id="theme-toggle" class="theme-toggle" onclick="toggleTheme()" aria-label="Switch to light mode"></button>
 </header>
 
 <main>
@@ -241,6 +320,44 @@ const FILES_PER_STATE = {
 
 let expandedTask = null;
 let expandedFile = {};
+
+// ---- Theme ----
+
+const SUN_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+const MOON_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+
+function getStoredTheme() {
+  try { return localStorage.getItem('theme'); } catch (e) { return null; }
+}
+
+function setStoredTheme(theme) {
+  try { localStorage.setItem('theme', theme); } catch (e) {}
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  const btn = document.getElementById('theme-toggle');
+  if (btn) {
+    // Icon reflects current theme: sun = light, moon = dark
+    btn.innerHTML = theme === 'light' ? SUN_ICON : MOON_ICON;
+    btn.setAttribute('aria-label', theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode');
+  }
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
+  const next = current === 'dark' ? 'light' : 'dark';
+  applyTheme(next);
+  setStoredTheme(next);
+}
+
+window.addEventListener('storage', function (e) {
+  if (e.key === 'theme' && e.newValue) {
+    applyTheme(e.newValue);
+  }
+});
+
+// ---- API ----
 
 async function api(path, method = 'GET', body = null) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
@@ -380,8 +497,6 @@ async function loadTasks() {
   // Restore expanded file view
   if (expandedTask && expandedFile[expandedTask]) {
     const filename = expandedFile[expandedTask];
-    const tab = document.querySelector(`#card-${expandedTask} .file-tab`);
-    // find the right tab
     const tabs = document.querySelectorAll(`#card-${expandedTask} .file-tab`);
     for (const t of tabs) {
       if (t.textContent === filename) {
@@ -395,6 +510,9 @@ async function loadTasks() {
 function escHtml(str) {
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+
+// Initialize theme button on load
+applyTheme(document.documentElement.getAttribute('data-theme') || 'light');
 
 // Initial load
 loadTasks();

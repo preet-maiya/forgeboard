@@ -13,6 +13,7 @@ const (
 	StateInReview           State = "IN_REVIEW"
 	StateReadyToMerge       State = "READY_TO_MERGE"
 	StateDone               State = "DONE"
+	StateError              State = "ERROR"
 )
 
 // ValidTransitions defines allowed state machine transitions.
@@ -21,10 +22,11 @@ var ValidTransitions = map[State][]State{
 	StateNeedsClarification: {StateSpecDrafted},
 	StateSpecDrafted:        {StateSpecApproved},
 	StateSpecApproved:       {StateImplementing},
-	StateImplementing:       {StateInReview, StateSpecApproved},
-	StateInReview:           {StateReadyToMerge, StateImplementing},
+	StateImplementing:       {StateInReview, StateSpecApproved, StateError},
+	StateInReview:           {StateReadyToMerge, StateImplementing, StateError},
 	StateReadyToMerge:       {StateDone},
 	StateDone:               {},
+	StateError:              {StateImplementing},
 }
 
 // CanTransition returns true if transitioning from current to next is valid.
@@ -38,9 +40,15 @@ func CanTransition(current, next State) bool {
 }
 
 type Task struct {
-	ID        string    `json:"id"`
-	Title     string    `json:"title"`
-	State     State     `json:"state"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID           string    `json:"id"`
+	Title        string    `json:"title"`
+	State        State     `json:"state"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	PRNumber     int       `json:"pr_number,omitempty"`
+	Notification string    `json:"notification,omitempty"`
+	Error        string    `json:"error,omitempty"`
+	ReviewError  string    `json:"review_error,omitempty"`
+	PushError    string    `json:"push_error,omitempty"`
+	PRClosed     bool      `json:"pr_closed,omitempty"`
 }

@@ -122,6 +122,12 @@ func (r *Repository) WriteFile(id, filename, content string) error {
 	return os.WriteFile(filepath.Join(r.tasksDir, id, filename), []byte(content), 0644)
 }
 
+// UpdateTask saves the full task (all fields) to disk.
+func (r *Repository) UpdateTask(t *Task) error {
+	t.UpdatedAt = time.Now()
+	return r.saveState(t)
+}
+
 func (r *Repository) saveState(t *Task) error {
 	data, err := json.MarshalIndent(t, "", "  ")
 	if err != nil {

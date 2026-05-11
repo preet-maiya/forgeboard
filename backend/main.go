@@ -10,7 +10,9 @@ import (
 	"forgeboard/internal/api"
 	"forgeboard/internal/claudecli"
 	"forgeboard/internal/executor"
+	ghclient "forgeboard/internal/github"
 	"forgeboard/internal/planner"
+	"forgeboard/internal/review"
 	"forgeboard/internal/scheduler"
 	"forgeboard/internal/spec"
 	"forgeboard/internal/task"
@@ -41,9 +43,28 @@ func main() {
 	sg := spec.NewClaudeGenerator()
 	ex := executor.NewClaudeCodeExecutor(projectRoot)
 
-	h := api.NewHandler(repo, p, sg, ex)
+	// GitHub integration is optional — only enabled when both env vars are set.
+	var gh *ghclient.Client
+	var rq *review.Queue
+	githubRepo := os.Getenv("GITHUB_REPO")
+	githubToken := os.Getenv("GITHUB_TOKEN")
+	if githubRepo != "" && githubToken != "" {
+		var initErr error
+		gh, initErr = ghclient.NewClient(githubRepo, githubToken)
+		if initErr != nil {
+			log.Printf("github: init failed (%v) — GitHub integration disabled", initErr)
+			gh = nil
+		} else {
+			rq = &review.Queue{}
+			log.Printf("github: integration enabled, repo=%s, bot=%s", githubRepo, gh.BotUser())
+		}
+	} else {
+		log.Printf("github: GITHUB_REPO or GITHUB_TOKEN not set — GitHub integration disabled")
+	}
 
-	sched := scheduler.New(repo, 30*time.Second)
+	h := api.NewHandler(repo, p, sg, ex, gh, rq)
+
+	sched := scheduler.New(repo, 30*time.Second, gh)
 	sched.Start()
 	defer sched.Stop()
 
