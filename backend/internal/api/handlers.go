@@ -97,6 +97,14 @@ func (h *Handler) routeTask(w http.ResponseWriter, r *http.Request, path string)
 		h.markDone(w, r, id)
 	case action == "files" && len(parts) == 3:
 		h.getFile(w, r, id, parts[2])
+	case action == "clarifications" && r.Method == http.MethodGet:
+		h.getClarifications(w, r, id)
+	case action == "answers" && r.Method == http.MethodGet:
+		h.getAnswers(w, r, id)
+	case action == "answers" && r.Method == http.MethodPost:
+		h.saveAnswers(w, r, id)
+	case action == "transition" && r.Method == http.MethodPost:
+		h.transitionState(w, r, id)
 	default:
 		jsonError(w, "not found", http.StatusNotFound)
 	}
@@ -356,6 +364,108 @@ func (h *Handler) getFile(w http.ResponseWriter, r *http.Request, id, filename s
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(content))
+}
+
+// GET /api/tasks/:id/clarifications
+func (h *Handler) getClarifications(w http.ResponseWriter, r *http.Request, id string) {
+	if _, err := h.repo.Get(id); err != nil {
+		jsonError(w, "task not found", http.StatusNotFound)
+		return
+	}
+	content, err := h.repo.ReadFile(id, "clarifications.md")
+	if err != nil {
+		// Missing file → empty array
+		jsonOK(w, []string{}, http.StatusOK)
+		return
+	}
+	lines := strings.Split(content, "\n")
+	questions := []string{}
+	for _, l := range lines {
+		l = strings.TrimSpace(l)
+		if l != "" {
+			questions = append(questions, l)
+		}
+	}
+	jsonOK(w, questions, http.StatusOK)
+}
+
+// GET /api/tasks/:id/answers
+func (h *Handler) getAnswers(w http.ResponseWriter, r *http.Request, id string) {
+	if _, err := h.repo.Get(id); err != nil {
+		jsonError(w, "task not found", http.StatusNotFound)
+		return
+	}
+	content, err := h.repo.ReadFile(id, "answers.md")
+	if err != nil {
+		jsonError(w, "answers not found", http.StatusNotFound)
+		return
+	}
+	var answers map[string]string
+	if err := json.Unmarshal([]byte(content), &answers); err != nil {
+		jsonError(w, "failed to parse answers.md", http.StatusInternalServerError)
+		return
+	}
+	jsonOK(w, answers, http.StatusOK)
+}
+
+// POST /api/tasks/:id/answers
+func (h *Handler) saveAnswers(w http.ResponseWriter, r *http.Request, id string) {
+	if _, err := h.repo.Get(id); err != nil {
+		jsonError(w, "task not found", http.StatusNotFound)
+		return
+	}
+	var answers map[string]string
+	if err := json.NewDecoder(r.Body).Decode(&answers); err != nil {
+		jsonError(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	for _, v := range answers {
+		if len([]rune(v)) > 500 {
+			jsonError(w, "answer exceeds 500 character limit", http.StatusBadRequest)
+			return
+		}
+	}
+	data, err := json.MarshalIndent(answers, "", "  ")
+	if err != nil {
+		jsonError(w, "failed to encode answers", http.StatusInternalServerError)
+		return
+	}
+	if err := h.repo.WriteFile(id, "answers.md", string(data)); err != nil {
+		jsonError(w, "failed to write answers.md", http.StatusInternalServerError)
+		return
+	}
+	jsonOK(w, map[string]string{"status": "saved"}, http.StatusOK)
+}
+
+// POST /api/tasks/:id/transition
+type transitionRequest struct {
+	NextState task.State `json:"next_state"`
+}
+
+func (h *Handler) transitionState(w http.ResponseWriter, r *http.Request, id string) {
+	t, err := h.repo.Get(id)
+	if err != nil {
+		jsonError(w, "task not found", http.StatusNotFound)
+		return
+	}
+	var req transitionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if req.NextState == "" {
+		jsonError(w, "next_state is required", http.StatusBadRequest)
+		return
+	}
+	if !task.CanTransition(t.State, req.NextState) {
+		jsonError(w, fmt.Sprintf("cannot transition from %s to %s", t.State, req.NextState), http.StatusBadRequest)
+		return
+	}
+	if err := h.repo.UpdateState(id, req.NextState); err != nil {
+		jsonError(w, "failed to update state", http.StatusInternalServerError)
+		return
+	}
+	jsonOK(w, map[string]string{"status": "ok", "task_id": id, "state": string(req.NextState)}, http.StatusOK)
 }
 
 // ========== GitHub async helpers ==========
